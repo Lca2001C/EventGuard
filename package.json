@@ -1,0 +1,25 @@
+{
+  "name": "eventguard",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@11.7.0",
+  "dependencies": {
+    "@eventguard/shared": "workspace:*",
+    "@prisma/client": "^6.1.0",
+    "bcryptjs": "^2.4.3"
+  },
+  "scripts": {
+    "dev": "corepack pnpm --parallel --filter @eventguard/api --filter @eventguard/web dev",
+    "build": "corepack pnpm --filter @eventguard/shared build && corepack pnpm --filter @eventguard/validations build && corepack pnpm --filter @eventguard/api build && corepack pnpm --filter @eventguard/web build",
+    "lint": "corepack pnpm --filter @eventguard/api lint && corepack pnpm --filter @eventguard/web lint",
+    "test": "corepack pnpm --filter @eventguard/api test",
+    "db:generate": "corepack pnpm --filter @eventguard/api prisma:generate",
+    "db:migrate": "corepack pnpm --filter @eventguard/api prisma:migrate",
+    "db:seed": "corepack pnpm --filter @eventguard/api prisma:seed"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "prisma": "^6.1.0",
+    "typescript": "^5.6.3"
+  }
+}

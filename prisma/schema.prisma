@@ -1,0 +1,444 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum RoleName {
+  SUPER_ADMIN
+  TENANT_ADMIN
+  ORGANIZER
+  RECEPTION
+  FINANCE
+}
+
+enum TenantStatus {
+  TRIAL
+  ACTIVE
+  PAST_DUE
+  BLOCKED
+  CANCELED
+}
+
+enum UserStatus {
+  INVITED
+  ACTIVE
+  DISABLED
+  LOCKED
+}
+
+enum EventStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  FINISHED
+  CANCELLED
+}
+
+enum GuestCategory {
+  COMMON
+  VIP
+  FAMILY
+  STAFF
+  SUPPLIER
+}
+
+enum InvitationStatus {
+  PENDING
+  SENT
+  CONFIRMED
+  DECLINED
+  CHECKED_IN
+  CANCELLED
+}
+
+enum CheckinResult {
+  APPROVED
+  DENIED
+  WARNING
+  DUPLICATE
+  OUT_OF_WINDOW
+  WRONG_EVENT
+  MANUAL
+}
+
+enum PlanCode {
+  STARTER
+  PROFESSIONAL
+  PREMIUM
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  INCOMPLETE
+}
+
+enum PaymentType {
+  SETUP
+  SUBSCRIPTION
+  OVERAGE
+}
+
+enum PaymentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  REFUNDED
+  CANCELLED
+}
+
+model Tenant {
+  id           String         @id @default(uuid()) @db.Uuid
+  name         String
+  slug         String         @unique
+  logoUrl      String?        @map("logo_url")
+  primaryColor String         @default("#2563eb") @map("primary_color")
+  status       TenantStatus   @default(TRIAL)
+  settings     Json           @default("{}")
+  planId       String?        @map("plan_id") @db.Uuid
+  plan         Plan?          @relation(fields: [planId], references: [id])
+  subscription Subscription?
+  users        User[]
+  events       Event[]
+  guests       Guest[]
+  invitations  Invitation[]
+  checkins     Checkin[]
+  devices      CheckinDevice[]
+  payments     Payment[]
+  usageRecords UsageRecord[]
+  auditLogs    AuditLog[]
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+  deletedAt    DateTime?      @map("deleted_at")
+
+  @@map("tenants")
+}
+
+model User {
+  id                  String               @id @default(uuid()) @db.Uuid
+  tenantId            String?              @map("tenant_id") @db.Uuid
+  tenant              Tenant?              @relation(fields: [tenantId], references: [id])
+  name                String
+  email               String               @unique
+  passwordHash        String               @map("password_hash")
+  status              UserStatus           @default(ACTIVE)
+  failedLoginAttempts Int                  @default(0) @map("failed_login_attempts")
+  lockedUntil         DateTime?            @map("locked_until")
+  lastLoginAt         DateTime?            @map("last_login_at")
+  termsAcceptedAt     DateTime?            @map("terms_accepted_at")
+  roles               UserRole[]
+  createdEvents       Event[]              @relation("EventCreator")
+  operatedCheckins    Checkin[]            @relation("CheckinOperator")
+  auditLogs           AuditLog[]           @relation("AuditActor")
+  refreshTokens       RefreshToken[]
+  passwordResetTokens PasswordResetToken[]
+  createdAt           DateTime             @default(now()) @map("created_at")
+  updatedAt           DateTime             @updatedAt @map("updated_at")
+  deletedAt           DateTime?            @map("deleted_at")
+
+  @@index([tenantId, status])
+  @@map("users")
+}
+
+model Role {
+  id        String     @id @default(uuid()) @db.Uuid
+  name      RoleName   @unique
+  userRoles UserRole[]
+
+  @@map("roles")
+}
+
+model UserRole {
+  id       String  @id @default(uuid()) @db.Uuid
+  userId   String  @map("user_id") @db.Uuid
+  user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  roleId   String  @map("role_id") @db.Uuid
+  role     Role    @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  tenantId String? @map("tenant_id") @db.Uuid
+
+  @@unique([userId, roleId, tenantId])
+  @@index([tenantId])
+  @@map("user_roles")
+}
+
+model Event {
+  id                     String       @id @default(uuid()) @db.Uuid
+  tenantId               String       @map("tenant_id") @db.Uuid
+  tenant                 Tenant       @relation(fields: [tenantId], references: [id])
+  createdById            String?      @map("created_by_id") @db.Uuid
+  creator                User?        @relation("EventCreator", fields: [createdById], references: [id])
+  name                   String
+  description            String?
+  startsAt               DateTime     @map("starts_at")
+  endsAt                 DateTime     @map("ends_at")
+  locationName           String       @map("location_name")
+  address                String?
+  capacity               Int
+  allowCompanions        Boolean      @default(false) @map("allow_companions")
+  maxCompanionsPerGuest  Int          @default(0) @map("max_companions_per_guest")
+  checkinStartsAt        DateTime?    @map("checkin_starts_at")
+  checkinEndsAt          DateTime?    @map("checkin_ends_at")
+  status                 EventStatus  @default(DRAFT)
+  guests                 Guest[]
+  invitations            Invitation[]
+  checkins               Checkin[]
+  createdAt              DateTime     @default(now()) @map("created_at")
+  updatedAt              DateTime     @updatedAt @map("updated_at")
+  deletedAt              DateTime?    @map("deleted_at")
+
+  @@index([tenantId, status])
+  @@index([tenantId, startsAt])
+  @@map("events")
+}
+
+model Guest {
+  id               String            @id @default(uuid()) @db.Uuid
+  tenantId         String            @map("tenant_id") @db.Uuid
+  tenant           Tenant            @relation(fields: [tenantId], references: [id])
+  eventId          String            @map("event_id") @db.Uuid
+  event            Event             @relation(fields: [eventId], references: [id])
+  name             String
+  email            String?
+  phone            String?
+  document         String?
+  category         GuestCategory     @default(COMMON)
+  isVip            Boolean           @default(false) @map("is_vip")
+  companionLimit   Int               @default(0) @map("companion_limit")
+  notes            String?
+  invitationStatus InvitationStatus  @default(PENDING) @map("invitation_status")
+  companions       GuestCompanion[]
+  invitations      Invitation[]
+  checkins         Checkin[]
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+  deletedAt        DateTime?         @map("deleted_at")
+
+  @@index([tenantId, eventId])
+  @@index([eventId, invitationStatus])
+  @@map("guests")
+}
+
+model GuestCompanion {
+  id          String    @id @default(uuid()) @db.Uuid
+  guestId     String    @map("guest_id") @db.Uuid
+  guest       Guest     @relation(fields: [guestId], references: [id], onDelete: Cascade)
+  name        String
+  document    String?
+  checkedInAt DateTime? @map("checked_in_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@map("guest_companions")
+}
+
+model Invitation {
+  id               String           @id @default(uuid()) @db.Uuid
+  tenantId         String           @map("tenant_id") @db.Uuid
+  tenant           Tenant           @relation(fields: [tenantId], references: [id])
+  eventId          String           @map("event_id") @db.Uuid
+  event            Event            @relation(fields: [eventId], references: [id])
+  guestId          String           @map("guest_id") @db.Uuid
+  guest            Guest            @relation(fields: [guestId], references: [id])
+  tokenHash        String           @unique @map("token_hash")
+  tokenLast4       String           @map("token_last4")
+  status           InvitationStatus @default(PENDING)
+  expiresAt        DateTime?        @map("expires_at")
+  sentAt           DateTime?        @map("sent_at")
+  confirmedAt      DateTime?        @map("confirmed_at")
+  checkedInAt      DateTime?        @map("checked_in_at")
+  checkins         Checkin[]
+  createdAt        DateTime         @default(now()) @map("created_at")
+  updatedAt        DateTime         @updatedAt @map("updated_at")
+  deletedAt        DateTime?        @map("deleted_at")
+
+  @@index([tenantId, eventId, status])
+  @@map("invitations")
+}
+
+model Checkin {
+  id             String         @id @default(uuid()) @db.Uuid
+  tenantId       String         @map("tenant_id") @db.Uuid
+  tenant         Tenant         @relation(fields: [tenantId], references: [id])
+  eventId        String         @map("event_id") @db.Uuid
+  event          Event          @relation(fields: [eventId], references: [id])
+  guestId        String?        @map("guest_id") @db.Uuid
+  guest          Guest?         @relation(fields: [guestId], references: [id])
+  invitationId   String?        @map("invitation_id") @db.Uuid
+  invitation     Invitation?    @relation(fields: [invitationId], references: [id])
+  operatorId     String?        @map("operator_id") @db.Uuid
+  operator       User?          @relation("CheckinOperator", fields: [operatorId], references: [id])
+  deviceId       String?        @map("device_id") @db.Uuid
+  device         CheckinDevice? @relation(fields: [deviceId], references: [id])
+  tokenHash      String?        @map("token_hash")
+  result         CheckinResult
+  reason         String?
+  companionCount Int            @default(0) @map("companion_count")
+  checkedInAt    DateTime       @default(now()) @map("checked_in_at")
+  createdAt      DateTime       @default(now()) @map("created_at")
+
+  @@index([tenantId, eventId, checkedInAt])
+  @@index([guestId])
+  @@map("checkins")
+}
+
+model CheckinDevice {
+  id          String    @id @default(uuid()) @db.Uuid
+  tenantId    String    @map("tenant_id") @db.Uuid
+  tenant      Tenant    @relation(fields: [tenantId], references: [id])
+  name        String
+  fingerprint String
+  platform    String?
+  lastSeenAt  DateTime  @default(now()) @map("last_seen_at")
+  checkins    Checkin[]
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@unique([tenantId, fingerprint])
+  @@map("checkin_devices")
+}
+
+model Plan {
+  id             String         @id @default(uuid()) @db.Uuid
+  code           PlanCode       @unique
+  name           String
+  priceCents     Int            @map("price_cents")
+  includedGuests Int            @map("included_guests")
+  overageCents   Int            @map("overage_cents")
+  features       String[]
+  tenants        Tenant[]
+  subscriptions  Subscription[]
+  payments       Payment[]
+  usageRecords   UsageRecord[]
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+
+  @@map("plans")
+}
+
+model Subscription {
+  id                         String             @id @default(uuid()) @db.Uuid
+  tenantId                   String             @unique @map("tenant_id") @db.Uuid
+  tenant                     Tenant             @relation(fields: [tenantId], references: [id])
+  planId                     String             @map("plan_id") @db.Uuid
+  plan                       Plan               @relation(fields: [planId], references: [id])
+  status                     SubscriptionStatus @default(TRIALING)
+  mercadoPagoPreapprovalId   String?            @unique @map("mercadopago_preapproval_id")
+  currentPeriodStart         DateTime?           @map("current_period_start")
+  currentPeriodEnd           DateTime?           @map("current_period_end")
+  trialEndsAt                DateTime?           @map("trial_ends_at")
+  payments                   Payment[]
+  createdAt                  DateTime            @default(now()) @map("created_at")
+  updatedAt                  DateTime            @updatedAt @map("updated_at")
+
+  @@map("subscriptions")
+}
+
+model Payment {
+  id                      String        @id @default(uuid()) @db.Uuid
+  tenantId                String        @map("tenant_id") @db.Uuid
+  tenant                  Tenant        @relation(fields: [tenantId], references: [id])
+  subscriptionId          String?       @map("subscription_id") @db.Uuid
+  subscription            Subscription? @relation(fields: [subscriptionId], references: [id])
+  planId                  String?       @map("plan_id") @db.Uuid
+  plan                    Plan?         @relation(fields: [planId], references: [id])
+  type                    PaymentType
+  status                  PaymentStatus @default(PENDING)
+  amountCents             Int           @map("amount_cents")
+  currency                String        @default("BRL")
+  description             String
+  checkoutUrl             String?       @map("checkout_url")
+  externalReference       String        @unique @map("external_reference")
+  mercadoPagoPaymentId    String?       @unique @map("mercadopago_payment_id")
+  paidAt                  DateTime?     @map("paid_at")
+  createdAt               DateTime      @default(now()) @map("created_at")
+  updatedAt               DateTime      @updatedAt @map("updated_at")
+
+  @@index([tenantId, status])
+  @@map("payments")
+}
+
+model UsageRecord {
+  id                 String   @id @default(uuid()) @db.Uuid
+  tenantId           String   @map("tenant_id") @db.Uuid
+  tenant             Tenant   @relation(fields: [tenantId], references: [id])
+  planId             String?  @map("plan_id") @db.Uuid
+  plan               Plan?    @relation(fields: [planId], references: [id])
+  periodStart        DateTime @map("period_start")
+  periodEnd          DateTime @map("period_end")
+  guestsUsed         Int      @default(0) @map("guests_used")
+  checkinsUsed       Int      @default(0) @map("checkins_used")
+  includedGuests     Int      @default(0) @map("included_guests")
+  overageGuests      Int      @default(0) @map("overage_guests")
+  overageAmountCents Int      @default(0) @map("overage_amount_cents")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId, periodStart, periodEnd])
+  @@map("usage_records")
+}
+
+model AuditLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String?  @map("tenant_id") @db.Uuid
+  tenant    Tenant?  @relation(fields: [tenantId], references: [id])
+  actorId   String?  @map("actor_id") @db.Uuid
+  actor     User?    @relation("AuditActor", fields: [actorId], references: [id])
+  action    String
+  entity    String
+  entityId  String?  @map("entity_id")
+  ip        String?
+  userAgent String?  @map("user_agent")
+  metadata  Json     @default("{}")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId, createdAt])
+  @@index([actorId, createdAt])
+  @@map("audit_logs")
+}
+
+model RefreshToken {
+  id                String    @id @default(uuid()) @db.Uuid
+  userId            String    @map("user_id") @db.Uuid
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash         String    @unique @map("token_hash")
+  family            String
+  revokedAt         DateTime? @map("revoked_at")
+  replacedByTokenId String?   @map("replaced_by_token_id") @db.Uuid
+  expiresAt         DateTime  @map("expires_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+
+  @@index([userId, family])
+  @@map("refresh_tokens")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+model WebhookEvent {
+  id          String    @id @default(uuid()) @db.Uuid
+  provider    String
+  eventId     String    @unique @map("event_id")
+  type        String
+  payload     Json
+  signature   String?
+  processedAt DateTime? @map("processed_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@index([provider, type])
+  @@map("webhook_events")
+}

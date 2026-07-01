@@ -1,0 +1,101 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 0 0% 99%;
+  --foreground: 222 18% 14%;
+  --card: 0 0% 100%;
+  --card-foreground: 222 18% 14%;
+  --muted: 220 14% 94%;
+  --muted-foreground: 224 10% 42%;
+  --border: 220 13% 88%;
+  --primary: 217 78% 52%;
+  --primary-foreground: 0 0% 100%;
+  --accent: 165 72% 38%;
+  --accent-foreground: 0 0% 100%;
+  --success: 151 64% 40%;
+  --warning: 37 92% 50%;
+  --danger: 0 78% 57%;
+}
+
+.dark {
+  --background: 220 15% 8%;
+  --foreground: 210 20% 96%;
+  --card: 220 14% 11%;
+  --card-foreground: 210 20% 96%;
+  --muted: 222 12% 17%;
+  --muted-foreground: 220 10% 68%;
+  --border: 220 12% 22%;
+  --primary: 214 90% 62%;
+  --primary-foreground: 0 0% 100%;
+  --accent: 166 70% 42%;
+  --accent-foreground: 0 0% 100%;
+  --success: 151 64% 44%;
+  --warning: 38 92% 54%;
+  --danger: 0 78% 62%;
+}
+
+* {
+  border-color: hsl(var(--border));
+}
+
+html {
+  min-height: 100%;
+  background: hsl(var(--background));
+}
+
+body {
+  min-height: 100%;
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+.responsive-table {
+  width: 100%;
+}
+
+@media (max-width: 767px) {
+  .responsive-table thead {
+    display: none;
+  }
+
+  .responsive-table tbody,
+  .responsive-table tr,
+  .responsive-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .responsive-table tr {
+    margin-bottom: 0.75rem;
+    border: 1px solid hsl(var(--border));
+    border-radius: 8px;
+    background: hsl(var(--card));
+    padding: 0.75rem;
+  }
+
+  .responsive-table td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    border: 0;
+    padding: 0.5rem 0;
+  }
+
+  .responsive-table td::before {
+    content: attr(data-label);
+    color: hsl(var(--muted-foreground));
+    font-size: 0.75rem;
+    text-transform: uppercase;
+  }
+}

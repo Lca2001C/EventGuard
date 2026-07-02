@@ -1,3 +1,4 @@
+import { join } from "node:path";
 import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { APP_GUARD } from "@nestjs/core";
@@ -21,7 +22,13 @@ import { PrismaModule } from "./prisma/prisma.module";
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      // The API process runs with cwd at apps/api, but the single source of
+      // truth for env vars is the monorepo root .env. Resolve it from this
+      // file's location (../../../.env works from both src and dist).
+      envFilePath: [join(__dirname, "../../../.env"), ".env"]
+    }),
     JwtModule.register({ global: true }),
     ThrottlerModule.forRoot([
       {

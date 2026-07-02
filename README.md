@@ -37,6 +37,22 @@ docs/       architecture, security, API, database, billing and deploy docs
 
 ## Local Setup
 
+### Quick start (Windows, one command)
+
+Run the all-in-one startup script. It loads the root `.env` into the process,
+starts PostgreSQL and Redis, waits until the database is healthy, installs
+dependencies, generates the Prisma client, applies migrations, seeds demo data
+and starts the API + web apps:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\start.ps1
+```
+
+Useful flags: `-SkipSeed` (don't seed), `-SkipDev` (prepare only, don't start
+the dev servers) and `-Fresh` (reset the database before migrating).
+
+### Manual setup
+
 1. Copy `.env.example` to `.env`.
 2. On Windows, run `powershell -ExecutionPolicy Bypass -File .\scripts\setup-windows.ps1`.
 3. On WSL/Linux, run `bash scripts/setup-wsl.sh`.

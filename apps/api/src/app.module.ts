@@ -3,22 +3,18 @@ import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { APP_GUARD } from "@nestjs/core";
 import { JwtModule } from "@nestjs/jwt";
-import { ThrottlerModule } from "@nestjs/throttler";
-import { AuditModule } from "./modules/audit/audit.module";
-import { AuthModule } from "./modules/auth/auth.module";
-import { BillingModule } from "./modules/billing/billing.module";
-import { CheckinsModule } from "./modules/checkins/checkins.module";
-import { EventsModule } from "./modules/events/events.module";
-import { GuestsModule } from "./modules/guests/guests.module";
-import { InvitationsModule } from "./modules/invitations/invitations.module";
-import { RealtimeModule } from "./modules/realtime/realtime.module";
-import { ReportsModule } from "./modules/reports/reports.module";
-import { TenantsModule } from "./modules/tenants/tenants.module";
-import { UsersModule } from "./modules/users/users.module";
-import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
-import { RolesGuard } from "./common/guards/roles.guard";
-import { TenantGuard } from "./common/guards/tenant.guard";
-import { PrismaModule } from "./prisma/prisma.module";
+import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
+import { QueueModule } from "./platform/queue/queue.module";
+import { AssinaturaModule } from "./contexts/assinatura/assinatura.module";
+import { ConsultaModule } from "./contexts/consulta/consulta.module";
+import { ContaModule } from "./contexts/conta/conta.module";
+import { IdentidadeModule } from "./contexts/identidade/identidade.module";
+import { MensageriaModule } from "./contexts/mensageria/mensageria.module";
+import { RecepcaoModule } from "./contexts/recepcao/recepcao.module";
+import { JwtAuthGuard } from "./contexts/identidade/interface/http/jwt-auth.guard";
+import { RolesGuard } from "./platform/http/guards/roles.guard";
+import { TenantGuard } from "./platform/http/guards/tenant.guard";
+import { PlatformModule } from "./platform/platform.module";
 
 @Module({
   imports: [
@@ -36,20 +32,17 @@ import { PrismaModule } from "./prisma/prisma.module";
         limit: 120
       }
     ]),
-    PrismaModule,
-    AuditModule,
-    AuthModule,
-    TenantsModule,
-    UsersModule,
-    EventsModule,
-    GuestsModule,
-    InvitationsModule,
-    CheckinsModule,
-    ReportsModule,
-    BillingModule,
-    RealtimeModule
+    PlatformModule,
+    QueueModule.forRoot(),
+    MensageriaModule.forRoot(),
+    IdentidadeModule,
+    ContaModule,
+    RecepcaoModule,
+    AssinaturaModule,
+    ConsultaModule
   ],
   providers: [
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: TenantGuard },
     { provide: APP_GUARD, useClass: RolesGuard }

@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: eventguard
+          POSTGRES_PASSWORD: eventguard
+          POSTGRES_DB: eventguard
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U eventguard -d eventguard"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://eventguard:eventguard@localhost:5432/eventguard?schema=public
+      REDIS_URL: redis://localhost:6379
+      JWT_ACCESS_SECRET: ci-access-secret
+      JWT_ACCESS_EXPIRES_IN: 15m
+      FRONTEND_URL: http://localhost:3000
+      API_URL: http://localhost:4000
+      NEXT_PUBLIC_API_URL: http://localhost:4000
+      CORS_ORIGIN: http://localhost:3000
+      NODE_ENV: test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Resolve pnpm store path
+        run: echo "STORE_PATH=$(corepack pnpm store path --silent)" >> "$GITHUB_ENV"
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: pnpm-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: corepack pnpm install --no-frozen-lockfile
+
+      - name: Generate Prisma client
+        run: corepack pnpm db:generate
+
+      - name: Apply database migrations
+        run: corepack pnpm --filter @eventguard/api exec prisma migrate deploy --schema ../../prisma/schema.prisma
+
+      - name: Lint
+        run: corepack pnpm lint
+
+      - name: Test
+        run: corepack pnpm test
+
+      - name: Build
+        run: corepack pnpm build

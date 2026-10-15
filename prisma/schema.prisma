@@ -132,6 +132,9 @@ model User {
   lockedUntil         DateTime?            @map("locked_until")
   lastLoginAt         DateTime?            @map("last_login_at")
   termsAcceptedAt     DateTime?            @map("terms_accepted_at")
+  twoFactorEnabled    Boolean              @default(false) @map("two_factor_enabled")
+  twoFactorSecret     String?              @map("two_factor_secret")
+  twoFactorRecoveryCodes String[]          @default([]) @map("two_factor_recovery_codes")
   roles               UserRole[]
   createdEvents       Event[]              @relation("EventCreator")
   operatedCheckins    Checkin[]            @relation("CheckinOperator")

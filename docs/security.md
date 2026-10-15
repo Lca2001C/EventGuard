@@ -26,7 +26,7 @@ Guards:
 
 ## Multi-Tenant Isolation
 
-Every business table has `tenant_id` where applicable. Services always derive tenant scope from the authenticated user, not from arbitrary client input, except super-admin endpoints.
+Every business table has `tenant_id` where applicable. Use cases always derive tenant scope from the authenticated user, not from arbitrary client input, except super-admin endpoints.
 
 ## QR Code Safety
 

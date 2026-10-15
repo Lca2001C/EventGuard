@@ -8,8 +8,12 @@ EventGuard is a multi-tenant SaaS MVP for private event venues, buffets and even
 - NestJS API with JWT auth, refresh token rotation, role and tenant guards.
 - PostgreSQL schema with Prisma, soft-delete fields, audit logs and tenant indexes.
 - Mercado Pago checkout and webhook handling.
-- Realtime dashboard gateway with WebSocket events.
+- Realtime dashboard gateway with authenticated WebSocket events and a live check-in feed.
+- Email and WhatsApp notifications (password reset and invitations) with provider adapters and BullMQ/Redis queues (with a synchronous fallback when Redis is absent).
+- Two-factor authentication (TOTP) with recovery codes.
+- S3-compatible cloud storage (Cloudflare R2 / AWS S3) for tenant logos, with a local-disk fallback for development.
 - Docker Compose for PostgreSQL, Redis, API and web.
+- GitHub Actions pipeline: lint, tests and build on every push/PR, plus Docker image build and push to GHCR.
 - Seed data with demo tenant, users, events, guests and plans.
 - Focused Jest tests for core business rules.
 
@@ -23,8 +27,15 @@ EventGuard is a multi-tenant SaaS MVP for private event venues, buffets and even
 
 ```txt
 apps/
-  api/      NestJS backend
+  api/      NestJS backend (modular monolith, DDD)
+    src/contexts/   identidade, conta, recepcao, assinatura, consulta, mensageria
+                    each with domain/ application/ infrastructure/ interface/
+    src/platform/   prisma, unit of work, queue, storage, websocket, audit, http guards
+    src/shared/kernel/  integration types, errors and port contracts
   web/      Next.js frontend
+    src/contexts/   identidade, conta, recepcao, assinatura, consulta (same four layers)
+    src/platform/   http client, event socket, ui primitives
+    src/app/        Next.js routes only
 packages/
   shared/   shared constants and types
   validations/ zod schemas shared by client and server
@@ -34,6 +45,8 @@ prisma/     schema and seed
 infra/      Docker and nginx files
 docs/       architecture, security, API, database, billing and deploy docs
 ```
+
+See [docs/architecture.md](docs/architecture.md) for the bounded contexts, the ports between them and how the boundaries are enforced.
 
 ## Local Setup
 
@@ -109,6 +122,23 @@ corepack pnpm db:migrate
 corepack pnpm db:seed
 ```
 
+### Windows PowerShell note
+
+Use `corepack pnpm` for every command (do not rely on a global `pnpm` shim). On PowerShell 5.x, chain commands on separate lines instead of `&&`:
+
+```powershell
+corepack pnpm install
+corepack pnpm db:generate
+corepack pnpm db:migrate
+corepack pnpm lint
+corepack pnpm test
+corepack pnpm build
+```
+
+Or use CMD chaining: `cmd /c "corepack pnpm lint && corepack pnpm test && corepack pnpm build"`.
+
+After adding BullMQ, approve native builds once if prompted: `corepack pnpm approve-builds` (or keep `msgpackr-extract: true` in `pnpm-workspace.yaml`).
+
 ## Security Notes
 
 - Invitation QR codes contain only an opaque random token.
@@ -119,12 +149,22 @@ corepack pnpm db:seed
 
 ## Mercado Pago
 
-Set `MERCADOPAGO_ACCESS_TOKEN`, `MERCADOPAGO_PUBLIC_KEY` and `MERCADOPAGO_WEBHOOK_SECRET`. The billing module creates checkout preferences for setup fees, subscriptions and plan changes. Webhooks update payment, subscription and tenant status.
+Set `MERCADOPAGO_ACCESS_TOKEN`, `MERCADOPAGO_PUBLIC_KEY` and `MERCADOPAGO_WEBHOOK_SECRET`. The Assinatura context creates checkout preferences for setup fees, subscriptions and plan changes. Webhooks update payment and subscription, and ask the Conta context to update tenant status.
+
+## Continuous Integration
+
+- `.github/workflows/ci.yml` runs on every push to `main` and every pull request: installs dependencies, generates the Prisma client, applies migrations against ephemeral PostgreSQL and Redis services, then runs lint, tests and build for the whole monorepo.
+- `.github/workflows/docker.yml` builds the API and web images from `infra/docker/*.Dockerfile` and pushes them to GitHub Container Registry (`ghcr.io/<owner>/eventguard-api` and `-web`) on pushes to `main` and version tags.
+
+## Notifications, 2FA and Storage
+
+- Set `EMAIL_PROVIDER` to `smtp` (with `SMTP_*`) or `resend` (with `EMAIL_API_KEY`). When empty, emails are logged to the console.
+- Set `WHATSAPP_PROVIDER` to `meta` (with `WHATSAPP_TOKEN` and `WHATSAPP_PHONE_ID`). When empty, messages are logged.
+- Set `REDIS_URL` to process notifications through BullMQ workers; otherwise they run inline.
+- Set `STORAGE_PROVIDER` to `r2` or `s3` (with `STORAGE_*`) for cloud uploads; otherwise logos are stored locally and served at `/uploads`.
+- Two-factor auth: `POST /auth/2fa/setup`, `/auth/2fa/enable`, `/auth/2fa/disable`, and `/auth/2fa/verify` during login. Configure the authenticator label with `TWO_FACTOR_ISSUER`.
 
 ## Roadmap
 
-- Email and WhatsApp delivery providers.
-- Cloud object storage for tenant logos and exports.
-- 2FA activation.
 - Native mobile reception app with Expo.
 - Biometric modules only after a dedicated legal and technical privacy review.

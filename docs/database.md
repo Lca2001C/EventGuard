@@ -27,7 +27,7 @@ Tenant-scoped tables include indexes such as:
 
 ## Soft Delete
 
-Primary business resources include `deleted_at`. Services filter deleted rows out of normal operations.
+Primary business resources include `deleted_at`. Repositories filter deleted rows out of normal operations.
 
 ## Token Storage
 

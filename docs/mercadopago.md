@@ -1,6 +1,6 @@
 # Mercado Pago
 
-The billing module integrates with Mercado Pago Checkout Pro-style preferences and webhook processing.
+The Assinatura context integrates with Mercado Pago Checkout Pro-style preferences and webhook processing.
 
 ## Environment
 
@@ -36,7 +36,7 @@ After validation, EventGuard stores the webhook in `webhook_events`, fetches the
 - `payments.status`
 - `payments.mercadopago_payment_id`
 - `subscriptions.status`
-- `tenants.status`
+- `tenants.status` (requested from the Conta context through `AtualizarSituacaoDaConta`)
 
 Approved subscription payments activate the tenant. Rejected payments mark the tenant as `PAST_DUE`.
 

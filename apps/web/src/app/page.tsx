@@ -10,9 +10,9 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { PLAN_CATALOG } from "@eventguard/shared";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { money } from "@/lib/utils";
+import { Button } from "@/platform/ui/button";
+import { Card, CardContent } from "@/platform/ui/card";
+import { money } from "@/platform/ui/formatacao";
 
 const benefits = [
   { icon: QrCode, title: "QR Code seguro", text: "Token opaco, hash no banco e bloqueio de duplicidade." },
